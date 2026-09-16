@@ -1,0 +1,37 @@
+# --- Secrets -----------------------------------------------------------------
+# Holds TFY_API_KEY. Never commit. See .env.example for the variables needed.
+.env
+.env.*
+!.env.example
+
+# --- Generated output --------------------------------------------------------
+# Chapter images, anchor portraits, character bibles and position tables are all
+# reproducible from input/ by re-running the pipeline, and run to hundreds of MB.
+output/
+
+# --- Source book text --------------------------------------------------------
+# The chapter corpus is licensed content, not part of this tool, and is large.
+# Drop this line if you do want a book tracked alongside the code.
+input/
+
+# --- Python ------------------------------------------------------------------
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- Editors and OS ----------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
