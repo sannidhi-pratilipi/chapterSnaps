@@ -253,11 +253,13 @@ def render_anchor(book_id: str, character: dict, age: str = "") -> None:
                 "character_id": character["id"],
             },
             size=PORTRAIT_SIZE,
-            # Anchors stay at 2K while chapter frames run at 4K: these are
-            # re-uploaded as references on every chapter call, and a 17MB
-            # multipart body would tax every request for identity detail the
-            # model does not read back at that resolution.
-            image_size="2K",
+            # Anchors render at 1K while chapter frames run at 4K. An anchor is
+            # only ever used as a reference attachment, never published, and
+            # references are normalised to a fixed token budget on the model's
+            # side whatever their size (see REFERENCE_MAX_EDGE). 1024 is both
+            # what the upload path caps them to and what the model reads, so
+            # anything larger is paid for at render time and then thrown away.
+            image_size="1K",
         ))
         character.setdefault("anchors", {})[age] = str(path.relative_to(OUTPUT_DIR))
         character["anchor_blocked"] = False

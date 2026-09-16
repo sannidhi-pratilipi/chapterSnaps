@@ -40,9 +40,7 @@ CINEMATIC_STYLE = (
     "them, background people included. An age is a face, not a label: give a "
     "person in their fifties the skin, jawline, hairline, grey and eye-area "
     "lines of their fifties, and a person of twenty the face of twenty. "
-    "Never default the frame to a cast of mid-twenties adults.\n"
-    "- Modest, fully covering clothing appropriate to the region, period and "
-    "setting of the scene."
+    "Never default the frame to a cast of mid-twenties adults."
 )
 
 # The most common failure before this block existed: everyone in frame turning
@@ -84,10 +82,7 @@ CANDID_VIEWPOINT = (
     "onlookers, a shopkeeper, a driver in the next vehicle. They are busy "
     "with their own business and turned into it, not watching the "
     "photographer.\n"
-    "- The attached portraits look straight down the lens because that is how "
-    "a studio sitting is shot. That gaze belongs to the portrait session and "
-    "stays in it: take the face from the reference, take where it is pointing "
-    "and what the eyes are doing from this scene.\n"
+
     "- Everyone is caught mid-action: weight already shifted, an arm already "
     "extended, a step already taken, a hand already gripping or bracing or "
     "pressing, the expression already breaking across the face. Nobody stands "
@@ -133,21 +128,16 @@ SCENE_REALISM = (
     "- Give each person the physical action their ACTION line describes — the "
     "grip, the reach, the block, the pull, the lean — carried out, not "
     "approximated by two people standing near each other.\n\n"
-    "LINES OF SIGHT AND AIM — every gesture ends somewhere inside this "
-    "frame:\n"
+    "AIM AND REACH — every gesture ends somewhere inside this frame:\n"
     "- An arm that points, aims, reaches or holds something out runs toward "
     "the thing its ACTION line names, and that thing is visible in the shot "
     "in that direction, at the height it actually sits. Follow the line of "
     "the arm: it must arrive at the named target.\n"
     "- Nothing is pointed, aimed, offered or extended toward the camera, and "
-    "no line of aim passes out through the lens. The camera stands off to the "
-    "side of that line and watches it cross the room on a diagonal, so the "
-    "person and the thing they are aiming at are both in the picture and "
-    "neither is reduced to a back turned to the lens.\n"
-    "- Each person's eyes go to whatever their ACTION line names, and that "
-    "thing is where their gaze would actually land — if they are looking at "
-    "something across the room, the angle of the head and eyes matches where "
-    "it stands in the frame.\n\n"
+    "no line of aim passes out through the lens. The camera watches that line "
+    "cross the room on a diagonal, so the person and the thing they are "
+    "aiming at are both in the picture and neither is reduced to a back "
+    "turned to the lens.\n\n"
     "PHYSICAL TRUTH OF THIS FRAME — a real camera could only have captured it "
     "this way:\n"
     "- Each object named above sits exactly where the scene places it, with its "
@@ -166,6 +156,72 @@ SCENE_REALISM = (
     "inside a named hand has already come to rest on a surface that "
     "supports it."
 )
+
+# Always on, and deliberately last in the prompt so nothing after it can
+# soften it. This is the final gate before render: by this point the WEARING
+# lines have already been written by an earlier model from chapter text that
+# may itself describe someone undressed, and the attached anchor portraits are
+# their own source of garments. So this block is stated as outranking both,
+# and as outranking the scene — otherwise each stage assumes an earlier one
+# handled it and nobody does.
+#
+# Decency and platform safety are one block rather than two. They were split
+# before — modesty in the body of the prompt, the safety constraints in a
+# retry-only addendum that fired AFTER a frame had already been silently
+# blocked, which made every first attempt the experiment. Both halves ship on
+# every render now, and SAFETY_RETRY_PREFIX escalates this same block instead
+# of restating it, so there is one place to edit these rules.
+SAFETY_RULES = (
+    "SAFETY & DECENCY — this governs the frame. It overrides the WEARING "
+    "lines, the scene text and every attached reference image, and nothing "
+    "in this prompt relaxes it:\n"
+    "- Every person in this frame is fully and properly dressed, including "
+    "everyone in the background. Clothing covers shoulders, chest, torso, "
+    "midriff and legs, sits closed and fastened, and is opaque, dry and "
+    "intact — never sheer, clinging, wet, torn, unbuttoned, slipping or "
+    "underwear-like.\n"
+    "- Every man wears a shirt, kurta or other upper garment, on his body and "
+    "fastened. No bare chest, no bare torso, no towel or sheet standing in "
+    "for clothing — not in a bedroom, bathroom, sickbed, gym, field, "
+    "riverbank or any scene of heat, sleep, work, injury or waking.\n"
+    "- If the WEARING text or the scene describes anyone as undressed, "
+    "shirtless, in underwear, in a towel, or in anything revealing, disregard "
+    "that description and clothe them in the decent, fully-covering outfit "
+    "they would wear in that place at that hour. Carry the moment with "
+    "expression, posture, framing and light instead.\n"
+    "- Frame and crop it decently too: no shot composed around a body, no "
+    "close crop on chest, hips or legs, no camera angle that looks up a "
+    "garment or down a neckline. The camera is at a respectful distance and "
+    "on the faces and the action.\n"
+    "- Bodies are held in ordinary, unsuggestive postures, and contact "
+    "between people is the plain kind a family audience reads without "
+    "comment.\n"
+    "- Everyone depicted is clearly an adult. Where a person's age is "
+    "uncertain, render them as unmistakably adult.\n"
+    "- Keep the whole frame publishable: no nudity or sexual content, no "
+    "self-harm, and no blood, wounds, gore or graphic violence.\n"
+    "- Intimate, sexual and violent moments are never depicted at all — not "
+    "explicitly, not mildly, not suggestively, whatever the scene text asks "
+    "for. Nothing sexual or romantic-physical: no kissing, embracing, "
+    "undressing, lying together, straddling, caressing, or bodies pressed "
+    "together. Nothing violent: no striking, slapping, choking, grabbing, "
+    "dragging, restraining, weapons raised or in use, and no one mid-blow or "
+    "mid-fall from one.\n"
+    "- Those moments are shown by what surrounds them instead. Render the "
+    "beat just before or just after: two people standing apart in the same "
+    "room, a face reacting from a doorway, a back turned, a closed door, a "
+    "hand on a doorframe, an object left behind, the stillness after. The "
+    "viewer understands what happened without being shown it happening.\n"
+    "- Where people must be near each other, keep them at ordinary social "
+    "distance in plain, unsuggestive postures — standing, seated, walking, "
+    "facing one another and talking. Contact is limited to the everyday kind "
+    "a family audience reads without comment: a hand on a forearm or "
+    "shoulder, a steadying touch.\n"
+    "- When the scene gives you nothing safe to show, fall back to the "
+    "people's faces and the room around them. A restrained frame is always "
+    "the right answer here; an explicit one is never salvageable."
+)
+
 
 # Vehicle interiors were the single worst-failing setting, and they failed the
 # same way every time: the frame came back as two incompatible cameras welded
@@ -205,18 +261,37 @@ VEHICLE_INTERIOR = (
     "at chest height, with the dashboard beneath it and the driver squared "
     "to it, hands closed on the rim. That is the only steering wheel in the "
     "vehicle — the other front seat has a plain dashboard in front of it.\n"
-    "- The driver's seat is on the side this scene's country drives on: the "
-    "right-hand seat where traffic keeps left (India, the UK, Japan, "
-    "Australia), the left-hand seat where traffic keeps right. Pedals, "
-    "mirror and gear lever follow that same layout.\n"
+    "- The driver's seat is on the side this scene's country drives on — the "
+    "country visible through the windows, not the one the vehicle's badge "
+    "suggests. Where traffic keeps left (India, the UK, Japan, Australia) the "
+    "steering wheel, pedals, instrument cluster and gear lever are ALL on the "
+    "RIGHT of the cabin and the driver sits on the right; where traffic keeps "
+    "right they are all on the left. An Indian street outside means a "
+    "right-hand-drive cabin inside, whatever make of car it is.\n"
+    "- The seats belong to ONE row at ONE depth from the lens. Everyone in "
+    "the front row sits shoulder to shoulder at the same distance from the "
+    "camera, and any row behind them is genuinely further away — smaller in "
+    "frame, seen past the front headrests and seat backs, through the gap "
+    "between them. Front-row doors, rear-row doors and their handles and "
+    "windows each stay with their own row rather than meeting in one plane.\n"
     "- The driver's seat is the one nearest the centre of the road, so "
     "oncoming vehicles pass on the DRIVER'S side of the windshield, facing "
     "the camera, while the kerb, parked vehicles, shopfronts and pedestrians "
     "run along the passenger's side.\n"
-    "- Everyone in the cabin is in a seat, upright against the seat back, at "
-    "the height that seat really puts them — no one floats between seats or "
-    "sits taller than the roof allows. Anyone at the frame edge is a whole "
-    "person in a real seat, not a stray head or shoulder with no body.\n"
+    "- Everyone in the cabin is IN a seat and facing the way that seat faces: "
+    "hips square in the seat pan, back against the seat back, both feet down "
+    "in the footwell in front of them, at the height that seat really puts "
+    "them. When the action turns someone toward a neighbour, only the upper "
+    "body turns — shoulders and head rotate over hips that stay in the seat, "
+    "knees still pointing forward. Nobody sits sideways with their legs up on "
+    "the seat, and nobody perches on the centre console, the armrest, the "
+    "gear lever or the gap between two seats.\n"
+    "- A person in the driver's seat keeps their body to the wheel: knees "
+    "under the steering column, feet at the pedals, however far they have "
+    "turned their head and shoulders to speak to someone.\n"
+    "- No one floats between seats or sits taller than the roof allows. "
+    "Anyone at the frame edge is a whole person in a real seat, not a stray "
+    "head or shoulder with no body.\n"
     "- Every vehicle outside is the kind that belongs on this road in this "
     "country, on its correct side, moving the direction its lane runs."
 )
@@ -239,20 +314,34 @@ def vehicle_block(event_description: str) -> str:
     return f"\n{VEHICLE_INTERIOR}\n" if any(c in text for c in VEHICLE_CUES) else ""
 
 
+# The same instruction was written three times — once in each system prompt
+# and once in CANDID_VIEWPOINT — and the three copies had drifted apart in
+# wording, which is how a rule quietly weakens. One definition now, used by
+# both system prompts. It lives here rather than in the prompt body because it
+# governs how to read an ATTACHMENT, which is meaningless when none is sent.
+PORTRAIT_REFERENCE_RULE = (
+    "CHARACTER PORTRAITS — identity only:\n"
+    "- Use each attached portrait strictly for facial structure: eyes, nose, "
+    "jawline, brow, hairline, face width and length, skin tone, hair type, "
+    "age. That face is reproduced feature by feature.\n"
+    "- Everything else in the portrait belongs to the studio sitting and "
+    "stays there — its flat lighting, plain backdrop and neutral clothing, "
+    "and the fact that the subject looks straight down the lens. That frontal "
+    "gaze is an artefact of being photographed, not a fact about the person.\n"
+    "- Render each subject fully inside this scene instead: lit by this "
+    "scene's light, wearing exactly what the WEARING section specifies, "
+    "turned into the action at whatever head angle their ACTION line demands, "
+    "with their eyes on what that line names."
+)
+
+
 # Chapter 1 only — no previous scene exists yet, so this frame establishes the
 # grade and optical language every later chapter is held to.
 FIRST_IMAGE_SYSTEM_PROMPT = (
     "You are a master cinematographer capturing a high-resolution 35mm film "
     "still of a dramatic story hook.\n\n"
     f"{CINEMATIC_STYLE}\n\n"
-    "REFERENCE HANDLING:\n"
-    "- Attached portraits are reference for facial features, bone structure "
-    "and physical identity only.\n"
-    "- Their studio lighting, plain backdrop, neutral clothing and "
-    "straight-to-camera pose all stay behind: render each subject fully "
-    "integrated into this scene's dramatic environmental light, wearing "
-    "exactly what the WEARING section specifies, and turned into the action "
-    "at whatever head angle their ACTION line demands.\n\n"
+    f"{PORTRAIT_REFERENCE_RULE}\n\n"
     "Establish the precise colour grade, contrast ratio and film texture here "
     "— this frame locks the look for every chapter that follows."
 )
@@ -262,15 +351,11 @@ FIRST_IMAGE_SYSTEM_PROMPT = (
 CONSISTENCY_IMAGE_SYSTEM_PROMPT = (
     "You are a master cinematographer maintaining strict visual continuity "
     "across a sequential story.\n\n"
-    "REFERENCE USAGE:\n"
-    "- CHARACTER PORTRAITS: use strictly for facial structural replication — "
-    "eyes, nose, jawline, skin tone, hair type, age. Their studio lighting "
-    "and default clothing stay behind, and so does the fact that they face "
-    "the lens: that frontal framing belongs to the portrait session, not to "
-    "this scene. The same face, seen from wherever the action turns it.\n"
-    "- PREVIOUS SCENE FRAME: match its optical profile only — colour palette, "
-    "contrast curve, lens grain, lighting atmosphere. Its pose, location and "
-    "garments belong to that moment, and this is a different one.\n\n"
+    f"{PORTRAIT_REFERENCE_RULE}\n\n"
+    "PREVIOUS SCENE FRAME — optics only:\n"
+    "- Match its optical profile and nothing else: colour palette, contrast "
+    "curve, lens grain, lighting atmosphere. Its pose, location and garments "
+    "belong to that moment, and this is a different one.\n\n"
     "CONTINUITY EXECUTION:\n"
     "1. Identity: lock each face to its reference portrait, then layer this "
     "scene's specifics (sweat, dirt, tears, emotion) over that same base.\n"
@@ -282,15 +367,13 @@ CONSISTENCY_IMAGE_SYSTEM_PROMPT = (
     f"{CINEMATIC_STYLE}"
 )
 
-# Appended only on retry, after a first attempt is silently blocked by the
-# image model's safety filter (see ImageBlockedError in generate_hook_image.py).
-# Not used on the first attempt — most scenes render fine without constraining
-# the prompt like this up front.
-SAFETY_OVERRIDE_RETRY_ADDENDUM = "\n".join([
-    "SAFETY OVERRIDE (RETRY): Render this in a strictly safe, PG-13, ad-friendly way.",
-    "No nudity, sexual content, or suggestive body focus.",
-    "Do not depict minors/children in vulnerable, harmful, romantic, or sexualized contexts; if age is unclear, portray all people as clearly adult (21+).",
-    "No self-harm, suicide, hanging, overdose, abuse, blood, gore, injury, or graphic violence.",
-    "Avoid explicit traumatic acts; use symbolic/indirect storytelling instead (emotion, lighting, environment, objects).",
-    "Keep the scene respectful, non-graphic, and platform-safe.",
-])
+# The safety rules above already ship on every render, so a retry does not need
+# a second copy of them — it needs them applied harder. This one line says the
+# previous attempt was rejected and asks for the most conservative reading,
+# which is the only thing a retry can usefully add.
+SAFETY_RETRY_PREFIX = (
+    "RETRY — the previous attempt at this frame was rejected by the safety "
+    "filter. Apply the SAFETY & DECENCY rules below at their most "
+    "conservative: pull the camera back, keep the moment indirect, and choose "
+    "the plainest, most fully-covered staging the scene allows."
+)

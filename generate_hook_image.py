@@ -75,7 +75,8 @@ from prompts.image_prompt import (  # noqa: E402
     CONSISTENCY_IMAGE_SYSTEM_PROMPT,
     FIRST_IMAGE_SYSTEM_PROMPT,
     PHOTOREAL_LEAD,
-    SAFETY_OVERRIDE_RETRY_ADDENDUM,
+    SAFETY_RETRY_PREFIX,
+    SAFETY_RULES,
     SCENE_REALISM,
     vehicle_block,
 )
@@ -363,8 +364,13 @@ def generate_chapter_image(
         # sit after SCENE_REALISM because they narrow it rather than restate it.
         f"{vehicle_block(event_description)}"
     )
+    # Last in the body and sent on EVERY render: these rules override the
+    # WEARING lines above them and the attached portraits, so they have to be
+    # read after both. A retry does not re-send them — it prefixes one line
+    # asking for the same rules at their most conservative.
     if safety_override:
-        prompt += f"\n{SAFETY_OVERRIDE_RETRY_ADDENDUM}\n"
+        prompt += f"\n{SAFETY_RETRY_PREFIX}\n"
+    prompt += f"\n{SAFETY_RULES}\n"
 
     system_prompt = FIRST_IMAGE_SYSTEM_PROMPT if is_first else CONSISTENCY_IMAGE_SYSTEM_PROMPT
 
