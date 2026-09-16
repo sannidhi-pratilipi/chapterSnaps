@@ -33,10 +33,15 @@ def bible_path(book_id: str) -> Path:
     return OUTPUT_DIR / book_id / "characters.xml"
 
 
-# A portrait is only a valid reference for a face within a few years of the
-# age it was rendered at. Past this the pipeline renders a second one rather
-# than attaching a child's face to a scene set fifteen years later.
-ANCHOR_AGE_TOLERANCE = 4
+# A character keeps ONE portrait for the whole book. A second is only rendered
+# when the story moves them somewhere the first genuinely cannot stand in for,
+# which in practice means one of two things: they cross between childhood and
+# adulthood, or the book jumps far enough that the face itself would have
+# changed. Short of that the same portrait is reused, because a face is
+# recognisably the same person across years, and a fresh render is a fresh
+# face — the inconsistency costs far more than the slight age mismatch.
+ADULT_AGE = 18
+ANCHOR_AGE_TOLERANCE = 15
 
 
 def anchor_path(book_id: str, character_id: str, age: str | int | None = None) -> Path:
@@ -248,6 +253,11 @@ def render_anchor(book_id: str, character: dict, age: str = "") -> None:
                 "character_id": character["id"],
             },
             size=PORTRAIT_SIZE,
+            # Anchors stay at 2K while chapter frames run at 4K: these are
+            # re-uploaded as references on every chapter call, and a 17MB
+            # multipart body would tax every request for identity detail the
+            # model does not read back at that resolution.
+            image_size="2K",
         ))
         character.setdefault("anchors", {})[age] = str(path.relative_to(OUTPUT_DIR))
         character["anchor_blocked"] = False
@@ -256,8 +266,20 @@ def render_anchor(book_id: str, character: dict, age: str = "") -> None:
         character["anchor_blocked"] = True
 
 
+def _portrait_still_fits(rendered_age: int, scene_age: int) -> bool:
+    """Whether a portrait rendered at one age can still stand in at another.
+
+    It can, unless the two sit on opposite sides of childhood — where the face
+    really is a different one — or are separated by enough years that the face
+    would visibly have changed.
+    """
+    if (rendered_age < ADULT_AGE) != (scene_age < ADULT_AGE):
+        return False
+    return abs(rendered_age - scene_age) <= ANCHOR_AGE_TOLERANCE
+
+
 def anchor_for_age(book_id: str, character: dict, age: str) -> tuple[str, Path] | None:
-    """The existing portrait closest to `age`, if one is close enough to use."""
+    """The existing portrait that best stands in for `age`, if any still fits."""
     candidates = [
         (existing_age, path)
         for existing_age, path in (character.get("anchors") or {}).items()
@@ -270,7 +292,7 @@ def anchor_for_age(book_id: str, character: dict, age: str) -> tuple[str, Path] 
         best_age, best_path = candidates[0]
         return best_age, OUTPUT_DIR / best_path
     best_age, best_path = min(candidates, key=lambda c: abs(int(c[0]) - int(age)))
-    if abs(int(best_age) - int(age)) > ANCHOR_AGE_TOLERANCE:
+    if not _portrait_still_fits(int(best_age), int(age)):
         return None
     return best_age, OUTPUT_DIR / best_path
 

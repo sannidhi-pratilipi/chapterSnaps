@@ -50,6 +50,13 @@ CINEMATIC_STYLE = (
 # reads as a cast photo rather than a moment lifted out of the story. Stated as
 # what the camera IS — an unnoticed witness — rather than as a ban on eye
 # contact, because a bare prohibition tends to pull the gaze straight back.
+#
+# Telling the PEOPLE not to look at the lens was not enough on its own: the
+# attached anchor portraits are straight-to-camera studio shots, and the
+# renderer copies a reference's gaze along with its bone structure. So the
+# rules below also move the CAMERA off everyone's eye-line and hand each
+# person a named head angle. A lens nobody is facing cannot be looked into,
+# which holds where an instruction not to look does not.
 CANDID_VIEWPOINT = (
     "VIEWPOINT — an unnoticed witness took this; it was not taken for anyone:\n"
     "- The camera is an uninvolved bystander standing inside the scene. Nobody "
@@ -60,10 +67,27 @@ CANDID_VIEWPOINT = (
     "whoever or whatever their ACTION line names, and their face, shoulders "
     "and whole body are turned toward that. No one looks into the camera, "
     "addresses it, or acknowledges it.\n"
-    "- Because they are turned into the action, faces arrive at whatever angle "
-    "the action gives them — three-quarter, profile, tilted down, "
-    "half-shadowed, or seen past a shoulder from behind — never squared "
-    "front-on to the viewer.\n"
+    "- The lens sits OFF the axis of every person's gaze. Before placing the "
+    "camera, follow each person's eye-line to the thing they are watching, "
+    "then stand the camera away from that line — past a shoulder, off to one "
+    "side, above or below their eye level, half-blocked by something in the "
+    "room. Nobody in this frame is facing the spot the camera occupies, so "
+    "the picture gives their eyes somewhere else to be.\n"
+    "- Give every person a definite head angle taken from the action: three-"
+    "quarter away, full profile, chin dropped, head turned back over a "
+    "shoulder, tilted up toward someone taller, or the back of the head with "
+    "the face hidden. Each face is rotated off the camera axis by a visible "
+    "amount — the nose points somewhere other than at the viewer, and both "
+    "eyes travel with it. Nobody is squared front-on with their pupils "
+    "centred.\n"
+    "- This holds for background and incidental people too: passers-by, "
+    "onlookers, a shopkeeper, a driver in the next vehicle. They are busy "
+    "with their own business and turned into it, not watching the "
+    "photographer.\n"
+    "- The attached portraits look straight down the lens because that is how "
+    "a studio sitting is shot. That gaze belongs to the portrait session and "
+    "stays in it: take the face from the reference, take where it is pointing "
+    "and what the eyes are doing from this scene.\n"
     "- Everyone is caught mid-action: weight already shifted, an arm already "
     "extended, a step already taken, a hand already gripping or bracing or "
     "pressing, the expression already breaking across the face. Nobody stands "
@@ -142,6 +166,78 @@ SCENE_REALISM = (
     "inside a named hand has already come to rest on a surface that "
     "supports it."
 )
+
+# Vehicle interiors were the single worst-failing setting, and they failed the
+# same way every time: the frame came back as two incompatible cameras welded
+# together — the road ahead seen through the windshield, which only happens
+# from BEHIND the occupants, and simultaneously the driver's face square to the
+# lens, which only happens from in FRONT of her. The generic SCENE_REALISM
+# rules never caught it, because each half is a legal photograph on its own and
+# nothing in the brief says a car has only one interior geometry.
+#
+# Appended only for scenes that are actually in a vehicle (see vehicle_block).
+# A car block on a kitchen scene is prompt weight spent on nothing, and the
+# renderer has been observed to drag furniture toward whatever the last long
+# block described.
+VEHICLE_INTERIOR = (
+    "INSIDE A VEHICLE — one camera, in one seat, for the whole frame:\n"
+    "- The camera occupies a single real position inside this vehicle, and "
+    "everything in the frame is what a lens in that one spot would see. "
+    "Choose it before anything else, and let it decide which faces are "
+    "visible — rather than showing the road ahead and a front-on face "
+    "together, which no single camera inside a car can capture.\n"
+    "- From a seat BEHIND the occupants, the windshield and the road ahead "
+    "fill the frame, and the people in the front seats are seen from behind: "
+    "backs of heads, shoulders, a cheek in three-quarter, an eye-line caught "
+    "in the rear-view or wing mirror. A face reaches this camera only as a "
+    "reflection in a mirror, and it appears in exactly one place — either "
+    "reflected or direct, never the same face twice in one frame.\n"
+    "- From a seat BESIDE or AHEAD of a person, their face is visible "
+    "directly, and what lies behind them through the glass is the side "
+    "window, the door, the seat back, or the road falling away — not the "
+    "forward view down the lane.\n"
+    "- The vehicle is a complete built interior around the people: dashboard "
+    "under the windshield with its instrument cluster, the A-pillar between "
+    "windshield and side window, door card and window frame, headrests, seat "
+    "backs and fastened seatbelts, roof lining overhead. The cabin encloses "
+    "them on every side rather than opening into empty space.\n"
+    "- The steering wheel sits on its column directly in front of ONE seat, "
+    "at chest height, with the dashboard beneath it and the driver squared "
+    "to it, hands closed on the rim. That is the only steering wheel in the "
+    "vehicle — the other front seat has a plain dashboard in front of it.\n"
+    "- The driver's seat is on the side this scene's country drives on: the "
+    "right-hand seat where traffic keeps left (India, the UK, Japan, "
+    "Australia), the left-hand seat where traffic keeps right. Pedals, "
+    "mirror and gear lever follow that same layout.\n"
+    "- The driver's seat is the one nearest the centre of the road, so "
+    "oncoming vehicles pass on the DRIVER'S side of the windshield, facing "
+    "the camera, while the kerb, parked vehicles, shopfronts and pedestrians "
+    "run along the passenger's side.\n"
+    "- Everyone in the cabin is in a seat, upright against the seat back, at "
+    "the height that seat really puts them — no one floats between seats or "
+    "sits taller than the roof allows. Anyone at the frame edge is a whole "
+    "person in a real seat, not a stray head or shoulder with no body.\n"
+    "- Every vehicle outside is the kind that belongs on this road in this "
+    "country, on its correct side, moving the direction its lane runs."
+)
+
+
+# Cheap keyword gate rather than another model call: the block costs nothing to
+# skip and a false positive only adds unused rules, so the list leans inclusive.
+VEHICLE_CUES = (
+    "car", "cab", "taxi", "auto", "rickshaw", "van", "truck", "lorry", "jeep",
+    "bus", "driving", "drives", "driver", "steering", "windshield", "windscreen",
+    "dashboard", "passenger seat", "back seat", "backseat", "rear-view",
+    "rearview", "seatbelt", "seat belt", "traffic", "highway", "roadside",
+)
+
+
+def vehicle_block(event_description: str) -> str:
+    """Return the vehicle-interior rules if this scene appears to happen in or
+    around a vehicle, otherwise an empty string."""
+    text = event_description.lower()
+    return f"\n{VEHICLE_INTERIOR}\n" if any(c in text for c in VEHICLE_CUES) else ""
+
 
 # Chapter 1 only — no previous scene exists yet, so this frame establishes the
 # grade and optical language every later chapter is held to.

@@ -77,6 +77,7 @@ from prompts.image_prompt import (  # noqa: E402
     PHOTOREAL_LEAD,
     SAFETY_OVERRIDE_RETRY_ADDENDUM,
     SCENE_REALISM,
+    vehicle_block,
 )
 from prompts.moment_prompt import (  # noqa: E402
     DEFUSED_RETRY_ADDENDUM,
@@ -358,13 +359,16 @@ def generate_chapter_image(
         f"{character_block}\n\n"
         f"WEARING:\n{wardrobe_block}\n\n"
         f"{SCENE_REALISM}\n"
+        # Only lands for scenes actually set in or around a vehicle; the rules
+        # sit after SCENE_REALISM because they narrow it rather than restate it.
+        f"{vehicle_block(event_description)}"
     )
     if safety_override:
         prompt += f"\n{SAFETY_OVERRIDE_RETRY_ADDENDUM}\n"
 
     system_prompt = FIRST_IMAGE_SYSTEM_PROMPT if is_first else CONSISTENCY_IMAGE_SYSTEM_PROMPT
 
-    # Genuinely last, after the style block — the two things that kept coming
+    # Genuinely last, after the style block — the few things that kept coming
     # back wrong, named once each. Not a restatement of the ACTION lines: this
     # prompt forbids duplicated limbs a few paragraphs up, and feeding the same
     # pose in twice is how that happens.
@@ -373,6 +377,14 @@ def generate_chapter_image(
         checks.append(f"- {cast_facts_line}")
     if action_lines(event_description):
         checks.append("- Every ACTION line above is physically happening in the frame.")
+    # Unconditional: the anchor portraits are front-on studio shots and their
+    # gaze leaks into the scene on every chapter, so this earns its place in
+    # the last block regardless of what the scene says. A camera-relationship
+    # check, not a pose the ACTION lines already carry.
+    checks.append(
+        "- The camera is outside everyone's eye-line: each face is turned away "
+        "from the lens by a visible angle and no one's eyes meet it."
+    )
     closing = "\n\nBEFORE ANYTHING ELSE:\n" + "\n".join(checks) if checks else ""
 
     return render_image(
@@ -380,7 +392,8 @@ def generate_chapter_image(
         f"{prompt}\n{system_prompt}{closing}",
         references,
         metadata,
-        upscale=True,
+        # No upscale: the 2K tier renders 2752x1536 natively, the same frame
+        # the 2x interpolation used to fake from 1376x768.
     )
 
 
