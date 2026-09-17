@@ -163,3 +163,55 @@ IDENTITY_FACTS_SYSTEM_PROMPT = (
     "this format, one line each, nothing else:\n"
     "<id> | <man or woman> | <age in years> | <chapter that age is true in>"
 )
+
+
+# Worked out once per book, then handed to every stage that describes or draws
+# a person. Without it each batch scan re-inferred the story's world from
+# scratch and the shot brief and image prompt never saw the answer at all —
+# so a Tamil household and a Punjabi one came out looking like the same
+# generic "Indian" family, and the image model fell back on its own default
+# face for the whole subcontinent.
+WORLD_SYSTEM_PROMPT = (
+    "You are establishing where a story is set, so that everyone later drawn "
+    "from it looks and dresses like they belong there. You will be given "
+    "chapters from the book.\n\n"
+    "Work it out from the evidence in the text: the language and script it is "
+    "written in, the given names and surnames, the forms of address and "
+    "kinship terms, the place names, the food, the festivals, the deities, the "
+    "clothing it mentions, the songs, the crops and the weather.\n\n"
+    "Then answer these, each as specifically as the evidence allows — name the "
+    "actual language, the actual region, the actual community. A story is "
+    "never simply 'Indian': it is written in one language, set in one part of "
+    "one state, among people of a particular community and standing, and the "
+    "people in it look and dress accordingly.\n\n"
+    "- LANGUAGE: the language the story is written in.\n"
+    "- REGION: the state and the part of it, and whether this is a city, a "
+    "town or a village.\n"
+    "- COMMUNITY: the social world the characters belong to — their "
+    "community, their class and standing, whether they are landed, "
+    "professional, working, urban or rural.\n"
+    "- APPEARANCE: how people of this region and community genuinely look. "
+    "Give the real range of complexions found there and where most people sit "
+    "in it, the facial structure and features that are actually common, hair "
+    "texture and how it is usually worn by men and by women, typical build and "
+    "height. Describe the real population, not a fair-skinned, sharp-featured "
+    "ideal: the faces should be recognisable to someone from that place, and "
+    "for most of India that means a range running well beyond fair.\n"
+    "- DRESS: what men and women of this community actually wear — everyday, "
+    "at home, at work, for festivals and formal occasions — named as the "
+    "garments are named there, along with the jewellery, marks and hair "
+    "ornaments that are usual, and how these differ by age and marital "
+    "status.\n"
+    "- NAMING: how people here are named and addressed, including the "
+    "honorifics and kinship terms the story uses.\n\n"
+    "Respond with XML and nothing else — no preamble, no commentary, no code "
+    "fences, and no text outside a tag:\n"
+    "<world>\n"
+    "  <language>...</language>\n"
+    "  <region>...</region>\n"
+    "  <community>...</community>\n"
+    "  <appearance>...</appearance>\n"
+    "  <dress>...</dress>\n"
+    "  <naming>...</naming>\n"
+    "</world>"
+)
