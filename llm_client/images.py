@@ -122,17 +122,48 @@ PORTRAIT_SIZE = "1024x1024"
 #   2K     2752x1536     2048x2048
 #   4K     5504x3072     4096x4096
 #
-# Chapter frames run at 4K: ~17MB and slower per frame, but they are the
-# published artefact and the headroom is there, so spend it. Anchors override
-# to 2K (see character_bible) — they are re-uploaded as references on every
-# chapter call, where a 17MB multipart body costs latency on every request for
-# identity detail the model does not read back at that resolution.
+# Everything runs at 1K now — the cheapest, fastest tier. In 16:9 that is
+# 1376x768, whose aspect (1.792) is very slightly wider than true 16:9, so
+# chapter frames are finished to exactly 1280x720 by FRAME_SIZE below.
 #
 # Passed via extra_body as a flat field. The nested Vertex form
 # (generationConfig.imageConfig.imageSize) works on generate but 400s on edit,
 # where the SDK flattens it into multipart keys Vertex won't parse — this flat
 # spelling is the one the gateway translates correctly on BOTH endpoints.
-IMAGE_SIZE_TIER = "4K"
+IMAGE_SIZE_TIER = "1K"
+
+
+# The published frame. The model cannot be asked for it directly — its 16:9
+# tier is 1376x768 — so the frame is centre-cropped to true 16:9 and resized
+# down to this. Eleven pixels of width are lost to the crop; resizing without
+# it would squash the picture by ~0.8% instead.
+FRAME_SIZE = (1280, 720)
+
+
+def _fit(png_bytes: bytes, target: tuple[int, int]) -> bytes:
+    from io import BytesIO
+
+    from PIL import Image
+
+    width, height = target
+    with Image.open(BytesIO(png_bytes)) as image:
+        image = image.convert("RGB")
+        if image.size != (width, height):
+            # Crop to the target aspect first, from the centre, so nothing is
+            # stretched — then scale to size.
+            aspect = width / height
+            if image.width / image.height > aspect:
+                keep = round(image.height * aspect)
+                left = (image.width - keep) // 2
+                image = image.crop((left, 0, left + keep, image.height))
+            else:
+                keep = round(image.width / aspect)
+                top = (image.height - keep) // 2
+                image = image.crop((0, top, image.width, top + keep))
+            image = image.resize((width, height), Image.LANCZOS)
+        buffer = BytesIO()
+        image.save(buffer, format="PNG", optimize=True)
+        return buffer.getvalue()
 
 
 def render_image(
@@ -142,6 +173,7 @@ def render_image(
     metadata: dict | None = None,
     size: str = LANDSCAPE_SIZE,
     image_size: str = IMAGE_SIZE_TIER,
+    fit: tuple[int, int] | None = None,
     upscale: bool = False,
 ) -> bytes:
     """Generate one image. If `references` are given, they're attached as
@@ -174,4 +206,6 @@ def render_image(
             )
         )
 
+    if fit:
+        return _fit(raw, fit)
     return _upscale(raw) if upscale else raw

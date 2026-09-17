@@ -66,6 +66,7 @@ from character_bible import (  # noqa: E402
 )
 from llm_client.images import (  # noqa: E402
     CHAPTER_IMAGE_MODEL,
+    FRAME_SIZE,
     ImageBlockedError,
     render_image,
 )
@@ -86,7 +87,7 @@ from prompts.moment_prompt import (  # noqa: E402
     build_roster_block,
 )
 
-TEXT_MODEL = "google-vertex/google-gemini-3.1-flash-lite"
+TEXT_MODEL = "google-vertex/google-gemini-3.1-pro-preview"
 
 
 def _block(raw: str, label: str, stop_labels: tuple[str, ...]) -> str:
@@ -380,8 +381,10 @@ def generate_chapter_image(
         f"{prompt}\n{system_prompt}{closing}",
         references,
         metadata,
-        # No upscale: the 2K tier renders 2752x1536 natively, the same frame
-        # the 2x interpolation used to fake from 1376x768.
+        # Delivered at exactly 720p. The 1K tier renders 1376x768, so the frame
+        # is cropped to true 16:9 and scaled down rather than left slightly
+        # wide.
+        fit=FRAME_SIZE,
     )
 
 

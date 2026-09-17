@@ -23,14 +23,9 @@ from prompts.character_prompt import (
     CHARACTER_ANCHOR_PORTRAIT_PROMPT,
     CHARACTER_BIBLE_SYSTEM_PROMPT,
     IDENTITY_FACTS_SYSTEM_PROMPT,
-    WORLD_SYSTEM_PROMPT,
 )
 
 TEXT_MODEL = "google-vertex/google-gemini-3.1-flash-lite"
-
-# What the story's world is, established once and reused by every stage that
-# describes or draws a person.
-WORLD_FIELDS = ("language", "region", "community", "appearance", "dress", "naming")
 
 def bible_path(book_id: str) -> Path:
     return OUTPUT_DIR / book_id / "characters.xml"
@@ -155,83 +150,6 @@ def _format_ranges(numbers: set[int]) -> str:
     return ",".join(parts)
 
 
-def load_world(book_id: str) -> dict:
-    """The story's language, region, community, and what people there look
-    like and wear. Empty until it has been worked out."""
-    path = bible_path(book_id)
-    if not path.exists():
-        return {}
-    element = ET.parse(path).getroot().find("world")
-    if element is None:
-        return {}
-    return {
-        field: (element.findtext(field) or "").strip()
-        for field in WORLD_FIELDS
-        if (element.findtext(field) or "").strip()
-    }
-
-
-def world_block(world: dict) -> str:
-    """The world rendered for a prompt. Leads with the concrete facts, because
-    what a person looks like and wears follows from them."""
-    if not world:
-        return ""
-    labels = {
-        "language": "LANGUAGE",
-        "region": "REGION",
-        "community": "COMMUNITY",
-        "appearance": "HOW PEOPLE HERE LOOK",
-        "dress": "WHAT PEOPLE HERE WEAR",
-        "naming": "NAMES AND FORMS OF ADDRESS",
-    }
-    lines = ["THE WORLD OF THIS STORY — everyone in it belongs to this place:"]
-    lines += [f"- {labels[f]}: {world[f]}" for f in WORLD_FIELDS if world.get(f)]
-    return "\n".join(lines)
-
-
-def detect_world(book_id: str) -> dict:
-    """Work out the story's world once, off a sample of its chapters."""
-    existing = load_world(book_id)
-    if existing:
-        return existing
-
-    chapters = list_chapter_numbers(book_id)
-    if not chapters:
-        return {}
-    print(f"[{book_id}] Working out the story's language, region and community...")
-    # Spread across the book rather than the opening alone: the first chapters
-    # are often a prologue somewhere else entirely.
-    sample = chapters[:4] + chapters[len(chapters) // 2:len(chapters) // 2 + 2]
-    text = "\n\n".join(
-        f"=== CHAPTER {n} ===\n{read_chapter_text(book_id, n)[:4000]}"
-        for n in dict.fromkeys(sample)
-    )
-    response = get_tfy_client({
-        "book_id": str(book_id),
-        "stage": "world_scan",
-    }).chat.completions.create(
-        model=TEXT_MODEL,
-        temperature=0.2,
-        messages=[
-            {"role": "system", "content": WORLD_SYSTEM_PROMPT},
-            {"role": "user", "content": text},
-        ],
-    )
-    elements = _response_elements(response.choices[0].message.content or "", "world")
-    if not elements:
-        print(f"[{book_id}] WARNING: could not determine the story's world.")
-        return {}
-    world = {
-        field: clean_field(elements[0].findtext(field) or "")
-        for field in WORLD_FIELDS
-        if (elements[0].findtext(field) or "").strip()
-    }
-    summary = " / ".join(world.get(f, "") for f in ("language", "region", "community") if world.get(f))
-    print(f"[{book_id}] World: {summary}")
-    save_bible(book_id, load_bible(book_id), world=world)
-    return world
-
-
 def load_skips(book_id: str) -> list[tuple[int, int]]:
     path = bible_path(book_id)
     if not path.exists():
@@ -253,22 +171,14 @@ def save_bible(
     characters: list[dict],
     scanned: set[int] | None = None,
     skips: list[tuple[int, int]] | None = None,
-    world: dict | None = None,
 ) -> None:
     # Keep the existing scan record unless the caller is explicitly updating it.
     if scanned is None:
         scanned = load_scanned(book_id)
     if skips is None:
         skips = load_skips(book_id)
-    if world is None:
-        world = load_world(book_id)
 
     root = ET.Element("characters")
-    if world:
-        element = ET.SubElement(root, "world")
-        for field in WORLD_FIELDS:
-            if world.get(field):
-                ET.SubElement(element, field).text = world[field]
     if scanned:
         root.set("scanned", _format_ranges(scanned))
     if skips:
