@@ -23,11 +23,9 @@ from prompts.character_prompt import (
     CHARACTER_ANCHOR_PORTRAIT_PROMPT,
     CHARACTER_BIBLE_SYSTEM_PROMPT,
     IDENTITY_FACTS_SYSTEM_PROMPT,
-    TIME_SKIP_SYSTEM_PROMPT,
 )
 
 TEXT_MODEL = "google-vertex/google-gemini-3.1-flash-lite"
-
 
 def bible_path(book_id: str) -> Path:
     return OUTPUT_DIR / book_id / "characters.xml"
@@ -159,13 +157,6 @@ def load_skips(book_id: str) -> list[tuple[int, int]]:
     return parse_skips(ET.parse(path).getroot().get("skips", ""))
 
 
-def timeline_scanned(book_id: str) -> bool:
-    path = bible_path(book_id)
-    if not path.exists():
-        return False
-    return ET.parse(path).getroot().get("timeline_scanned") == "true"
-
-
 def load_scanned(book_id: str) -> set[int]:
     """Chapters already scanned for new cast — recorded so no chapter is ever
     scanned twice, across runs as well as within one."""
@@ -180,25 +171,18 @@ def save_bible(
     characters: list[dict],
     scanned: set[int] | None = None,
     skips: list[tuple[int, int]] | None = None,
-    mark_timeline_scanned: bool | None = None,
 ) -> None:
     # Keep the existing scan record unless the caller is explicitly updating it.
     if scanned is None:
         scanned = load_scanned(book_id)
     if skips is None:
         skips = load_skips(book_id)
-    if mark_timeline_scanned is None:
-        mark_timeline_scanned = timeline_scanned(book_id)
 
     root = ET.Element("characters")
     if scanned:
         root.set("scanned", _format_ranges(scanned))
     if skips:
         root.set("skips", format_skips(skips))
-    if mark_timeline_scanned:
-        # Recorded even when the skip list is empty, so a book with no time
-        # jumps is not rescanned for them on every run.
-        root.set("timeline_scanned", "true")
     for character in characters:
         element = ET.SubElement(root, "character", id=character["id"])
         ET.SubElement(element, "name").text = character["name"]
@@ -398,54 +382,6 @@ def age_from_identity(identity: str) -> str:
     return match.group(1) if match else ""
 
 
-def detect_time_skips(book_id: str) -> list[tuple[int, int]]:
-    """Find where the book jumps forward in time, once per book.
-
-    Only the opening of each chapter is read. A jump is announced where it
-    happens — "15 वर्षों बाद...", "ten years later" — so the first few hundred
-    characters carry it, and feeding whole chapters of a fifty-chapter book to
-    find one line is not worth what it costs.
-    """
-    if timeline_scanned(book_id):
-        return load_skips(book_id)
-
-    chapters = list_chapter_numbers(book_id)
-    if not chapters:
-        return []
-    print(f"[{book_id}] Checking the book's timeline for time jumps...")
-    openings = "\n\n".join(
-        f"=== CHAPTER {n} ===\n{read_chapter_text(book_id, n)[:700]}" for n in chapters
-    )
-
-    response = get_tfy_client({
-        "book_id": str(book_id),
-        "stage": "timeline_scan",
-    }).chat.completions.create(
-        model=TEXT_MODEL,
-        temperature=0.1,  # reading a marker off the page, not interpreting
-        messages=[
-            {"role": "system", "content": TIME_SKIP_SYSTEM_PROMPT},
-            {"role": "user", "content": openings},
-        ],
-    )
-    skips = parse_skips(
-        ",".join(
-            f"{parts[0].strip()}:{parts[1].strip()}"
-            for line in (response.choices[0].message.content or "").splitlines()
-            if len(parts := line.split("|")) >= 2
-        )
-    )
-    if skips:
-        summary = ", ".join(f"+{years}y from chapter {ch}" for ch, years in skips)
-        print(f"[{book_id}] Timeline: {summary}")
-    else:
-        print(f"[{book_id}] Timeline: no time jumps.")
-    # Recorded straight away — including when empty — so this costs one call
-    # per book ever, and so every age derived from it is computed the same way.
-    save_bible(book_id, load_bible(book_id), skips=skips, mark_timeline_scanned=True)
-    return skips
-
-
 def strip_age_from_identity(identity: str) -> str:
     """Remove an age left embedded in the prose.
 
@@ -539,25 +475,45 @@ def backfill_identity_facts(
     return characters
 
 
-def _parse_bible(raw: str) -> list[dict]:
+def _response_elements(raw: str, tag: str) -> list[ET.Element]:
+    """Every <tag> element in a model response, parsed as XML.
+
+    The response is wrapped in a root and parsed properly rather than picked
+    apart with regular expressions. That is what makes a malformed reply fail
+    here, loudly, instead of a greedy match swallowing the rest of the reply
+    into one field — which is how a whole second character's text once ended
+    up written into the bible as somebody's clothing.
+    """
+    body = re.sub(r"^\s*```(?:xml)?|```\s*$", "", raw.strip(), flags=re.MULTILINE)
+    # Only the elements asked for; any stray prose around them is dropped.
+    chunks = re.findall(rf"<{tag}\b.*?(?:/>|</{tag}>)", body, re.DOTALL)
+    elements = []
+    for chunk in chunks:
+        try:
+            elements.append(ET.fromstring(chunk))
+        except ET.ParseError as e:
+            print(f"WARNING: skipping malformed <{tag}> in model response: {e}")
+    return elements
+
+
+def parse_bible(raw: str) -> list[dict]:
+    """Parse the <character> elements the cast scan returns."""
     characters = []
-    for block in raw.split("---"):
-        id_match = re.search(r"CHARACTER:\s*([^\s|]+)\s*\|\s*(.+)", block)
-        identity_match = re.search(r"IDENTITY:\s*(.*?)(?=\nDEFAULT_OUTFIT:|\Z)", block, re.DOTALL)
-        outfit_match = re.search(r"DEFAULT_OUTFIT:\s*(.+)", block, re.DOTALL)
-        if not id_match or not identity_match:
+    for element in _response_elements(raw, "character"):
+        cid = re.sub(r"[^a-z0-9_]", "", (element.get("id") or "").strip().lower())
+        identity = clean_field(element.findtext("identity") or "")
+        if not cid or cid.startswith("<") or not identity:
             continue
-        gender_match = re.search(r"GENDER:\s*(.+)", block)
-        age_match = re.search(r"AGE:\s*(\d{1,3})", block)
-        ref_match = re.search(r"AGE_IN_CHAPTER:\s*(\d{1,4})", block)
+        age = (element.findtext("age") or "").strip()
+        ref = (element.findtext("age_in_chapter") or "").strip()
         characters.append({
-            "id": id_match.group(1).strip().lower(),
-            "name": id_match.group(2).strip(),
-            "gender": normalise_gender(gender_match.group(1)) if gender_match else "",
-            "age": age_match.group(1) if age_match else "",
-            "age_ref_chapter": ref_match.group(1) if ref_match else "",
-            "identity": clean_field(identity_match.group(1)),
-            "default_outfit": clean_field(outfit_match.group(1)) if outfit_match else "",
+            "id": cid,
+            "name": clean_field(element.findtext("name") or "") or cid,
+            "gender": normalise_gender(element.findtext("gender") or ""),
+            "age": age if age.isdigit() else "",
+            "age_ref_chapter": ref if ref.isdigit() else "",
+            "identity": identity,
+            "default_outfit": clean_field(element.findtext("default_outfit") or ""),
         })
     return characters
 
@@ -571,20 +527,52 @@ def _existing_roster_block(characters: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _parse_skip_lines(raw: str) -> list[tuple[int, int]]:
+    """Pull `<skip chapter="38" years="15"/>` elements out of the batch scan."""
+    skips = []
+    for element in _response_elements(raw, "skip"):
+        chapter, years = element.get("chapter", ""), element.get("years", "")
+        if chapter.strip().isdigit() and years.strip().isdigit():
+            skips.append((int(chapter), int(years)))
+    return skips
+
+
+def _merge_skips(
+    existing: list[tuple[int, int]], found: list[tuple[int, int]]
+) -> list[tuple[int, int]]:
+    """Add newly-found jumps to the book's skip record, keyed by chapter so a
+    jump already recorded (from an earlier batch) is never duplicated or
+    overwritten with a re-read of the same chapter."""
+    merged = dict(existing)
+    for chapter, years in found:
+        merged.setdefault(chapter, years)
+    return sorted(merged.items())
+
+
 def extend_bible(
     book_id: str, characters: list[dict], chapter_numbers: list[int]
 ) -> list[dict]:
     """Scan the chapters about to be rendered and add any significant new cast
     member to the bible *before* those chapters are generated, so they already
-    have a locked identity and portrait when their scenes come up.
+    have a locked identity and portrait when their scenes come up. The same
+    scan also catches any time jump inside this batch (the SKIP lines in
+    CHARACTER_BIBLE_SYSTEM_PROMPT) — one call handles both, rather than a
+    second pass reading every chapter in the book again just to find a
+    "years later" marker.
 
     Reading a whole batch at once — rather than judging one chapter in
     isolation — is what makes "does this person actually matter?" answerable:
     someone who shows up across several of these chapters is real cast, someone
-    who appears once is not.
+    who appears once is not. It is also what lets a time jump be found at all:
+    a jump inside chapter 3 of a 5-chapter batch is still visible to a call
+    that reads all 5, the same way it would be to a whole-book scan, just
+    without paying to re-read every chapter that comes before or after it.
 
     Chapters already scanned on a previous run are skipped, so each chapter is
-    read for cast exactly once for the life of the book.
+    read for cast (and for any time jump) exactly once for the life of the
+    book — a jump discovered here only ever affects ages from this batch's
+    chapters onward, since anything earlier has already been rendered under
+    whatever the bible knew at the time.
 
     Existing entries are never rewritten; their portraits are already in use by
     chapters that have been rendered.
@@ -612,17 +600,24 @@ def extend_bible(
             {"role": "user", "content": f"{_existing_roster_block(characters)}\n\n{scan}"},
         ],
     )
-    found = _parse_bible((response.choices[0].message.content or "").strip())
+    raw = (response.choices[0].message.content or "").strip()
+    found = parse_bible(raw)
 
     # Record the scan before anything else, so these chapters are never read
-    # for cast again even if no one new turned up.
+    # for cast (or time jumps) again even if nothing new turned up.
     scanned = already_scanned | set(todo)
+
+    new_skips = _parse_skip_lines(raw)
+    skips = _merge_skips(load_skips(book_id), new_skips) if new_skips else None
+    if new_skips:
+        summary = ", ".join(f"+{years}y from chapter {ch}" for ch, years in new_skips)
+        print(f"[{book_id}] Timeline: {summary}")
 
     known = {c["id"] for c in characters}
     fresh = [c for c in found if c["id"] not in known and c["identity"]]
     if not fresh:
         print(f"[{book_id}] No new cast in chapters {span}.")
-        save_bible(book_id, characters, scanned)
+        save_bible(book_id, characters, scanned, skips=skips)
         return characters
 
     # Text entries only — each one's portrait is rendered later, the first time
@@ -634,5 +629,5 @@ def extend_bible(
         if not character.get("age_ref_chapter"):
             character["age_ref_chapter"] = str(todo[0])
     characters.extend(fresh)
-    save_bible(book_id, characters, scanned)
+    save_bible(book_id, characters, scanned, skips=skips)
     return characters

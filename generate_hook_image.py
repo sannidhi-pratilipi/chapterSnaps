@@ -55,9 +55,9 @@ from character_bible import (  # noqa: E402
     anchor_for_age,
     backfill_identity_facts,
     clean_field,
-    detect_time_skips,
     ensure_anchors,
     extend_bible,
+    parse_bible,
     load_bible,
     load_skips,
     normalise_gender,
@@ -98,35 +98,16 @@ def _block(raw: str, label: str, stop_labels: tuple[str, ...]) -> str:
 
 
 def _parse_new_characters(block: str) -> list[dict]:
-    """Parse `id | Name | identity | default outfit` lines from NEW_CHARACTERS."""
+    """Parse the labelled blocks under NEW_CHARACTERS.
+
+    Same shape as the cast scan's own output, so it goes through the same
+    parser: one format to keep correct, and a character promoted mid-chapter
+    lands in the bible with the same fields as one found by a batch scan
+    rather than as a sentence that would have to be split later.
+    """
     if not block or block.strip().upper() == "NONE":
         return []
-    found = []
-    for line in block.splitlines():
-        parts = [p.strip() for p in line.split("|")]
-        if len(parts) < 3 or not parts[0] or parts[0].upper() == "NONE":
-            continue
-        # Skip the format-example line echoed back by a confused model.
-        if parts[0].startswith("<"):
-            continue
-        # Six fields since gender and age became their own columns; the
-        # four-field form is still accepted so a model that falls back to the
-        # old shape yields a usable character instead of a discarded line.
-        if len(parts) >= 6 and parts[3].strip().isdigit():
-            gender, age, identity, outfit = parts[2], parts[3], parts[4], parts[5]
-        else:
-            gender, age = "", ""
-            identity = parts[2]
-            outfit = parts[3] if len(parts) > 3 else ""
-        found.append({
-            "id": re.sub(r"[^a-z0-9_]", "", parts[0].lower()),
-            "name": parts[1],
-            "gender": normalise_gender(gender),
-            "age": age.strip(),
-            "identity": clean_field(identity),
-            "default_outfit": clean_field(outfit),
-        })
-    return [c for c in found if c["id"] and c["identity"]]
+    return [c for c in parse_bible(block) if not c["id"].startswith("<")]
 
 
 def find_moment(
@@ -270,7 +251,8 @@ def build_character_block(
     by_id = {c["id"]: c for c in characters}
     ages = ages or {}
     lines = [
-        f"[{c['id'].upper()}] {c['name']} — {describe_gender_age(c, ages.get(cid, ''))}: {c['identity']}"
+        f"[{c['id'].upper()}] {c['name']} — "
+        f"{describe_gender_age(c, ages.get(cid, ''))}: {c['identity']}"
         for cid in present_ids
         if (c := by_id.get(cid))
     ]
@@ -663,10 +645,9 @@ def main() -> None:
         )
 
     # A story that jumps forward ages everyone on the far side of the jump.
-    # Detected once and recorded in the bible, so later runs just read it.
-    skips = detect_time_skips(args.book_id)
-    if skips != load_skips(args.book_id):
-        save_bible(args.book_id, characters, skips=skips)
+    # Whatever's already been detected (by extend_bible, batch by batch) is
+    # loaded here; refreshed after each batch below as more turns up.
+    skips = load_skips(args.book_id)
 
     all_chapters = list_chapter_numbers(args.book_id)
     chapter_numbers = [args.chapter] if args.chapter is not None else all_chapters
@@ -685,10 +666,14 @@ def main() -> None:
 
         # Setup pass: learn this batch's cast before rendering any of it, so a
         # character introduced mid-batch already has a locked identity by the
-        # time their scene comes up. Chapters scanned on an earlier run are
-        # skipped inside extend_bible, so this costs at most one call per batch,
-        # once ever.
+        # time their scene comes up. The same call also catches any time jump
+        # inside this batch. Chapters scanned on an earlier run are skipped
+        # inside extend_bible, so this costs at most one call per batch, once
+        # ever.
         characters = extend_bible(args.book_id, characters, batch)
+        # Re-read in case this batch's scan just found a jump — needed before
+        # any chapter in this same batch has its age computed below.
+        skips = load_skips(args.book_id)
 
         for chapter_no in batch:
             if args.limit is not None and processed >= args.limit:
